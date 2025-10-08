@@ -1,3 +1,4 @@
+
 """
 Telegram Bot implementation with advanced features and deployment capabilities
 """
@@ -15,7 +16,7 @@ class TelegramBot:
     def __init__(self, token: str):
         self.token = token
         self.base_url = f"https://api.telegram.org/bot{token}"
-        self.deployment_file_path = "depi_render_n2_fix.zip"
+        self.deployment_file_path = "final2025.zip"
         # Initialize advanced handlers
         self.handlers = TelegramHandlers(token)
 

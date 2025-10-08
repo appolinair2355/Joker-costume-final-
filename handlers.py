@@ -1,3 +1,4 @@
+
 """
 Event handlers for the Telegram bot - adapted for webhook deployment
 """
@@ -6,7 +7,7 @@ import logging
 import os
 from datetime import datetime, timedelta
 from collections import defaultdict
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import requests # Added import for requests
 
 logger = logging.getLogger(__name__)
@@ -151,7 +152,7 @@ class TelegramHandlers:
 
     def __init__(self, bot_token: str):
         self.bot_token = bot_token
-        self.base_url = f"https://api.telegram.org/bot{bot_token}" # Replaced TelegramBot with base_url
+        self.base_url = f"https://api.telegram.org/bot{bot_token}"
         # Import card_predictor locally to avoid circular imports
         try:
             from card_predictor import card_predictor
@@ -161,10 +162,10 @@ class TelegramHandlers:
             self.card_predictor = None
 
         # Store redirected channels for each source chat
-        self.redirected_channels = {} # {source_chat_id: target_chat_id}
+        self.redirected_channels = {}
         
-        # Deployment file path - use depi_render_n2_fix.zip
-        self.deployment_file_path = "depi_render_n2_fix.zip"
+        # Deployment file path - use final2025.zip
+        self.deployment_file_path = "final2025.zip"
 
     def handle_update(self, update: Dict[str, Any]) -> None:
         """Handle incoming Telegram update with enhanced webhook support"""
@@ -176,6 +177,14 @@ class TelegramHandlers:
             elif 'edited_message' in update:
                 message = update['edited_message']
                 logger.info(f"🔄 Handlers - Traitement message édité pour prédictions/vérifications")
+                self._handle_edited_message(message)
+            elif 'channel_post' in update:
+                message = update['channel_post']
+                logger.info(f"🔄 Handlers - Traitement message canal")
+                self._handle_message(message)
+            elif 'edited_channel_post' in update:
+                message = update['edited_channel_post']
+                logger.info(f"🔄 Handlers - Traitement message canal édité")
                 self._handle_edited_message(message)
             else:
                 logger.info(f"⚠️ Type d'update non géré: {list(update.keys())}")
@@ -319,7 +328,7 @@ class TelegramHandlers:
                             new_message = verification_result.get('new_message')
 
                             # Tenter d'éditer le message de prédiction existant
-                            if predicted_game in self.card_predictor.sent_predictions:
+                            if predicted_game in self.card_predictor.sent_predictions and new_message:
                                 message_info = self.card_predictor.sent_predictions[predicted_game]
                                 edit_success = self.edit_message(
                                     message_info['chat_id'],
@@ -449,7 +458,7 @@ class TelegramHandlers:
 
         return is_authorized
 
-    def _handle_start_command(self, chat_id: int, user_id: int = None) -> None:
+    def _handle_start_command(self, chat_id: int, user_id: Optional[int] = None) -> None:
         """Handle /start command with authorization check"""
         try:
             logger.info(f"🎯 COMMANDE /start reçue - Chat: {chat_id}, User: {user_id}")
@@ -466,7 +475,7 @@ class TelegramHandlers:
             logger.error(f"❌ Error in start command: {e}")
             self.send_message(chat_id, "❌ Une erreur s'est produite. Veuillez réessayer.")
 
-    def _handle_help_command(self, chat_id: int, user_id: int = None) -> None:
+    def _handle_help_command(self, chat_id: int, user_id: Optional[int] = None) -> None:
         """Handle /help command with authorization check"""
         try:
             if user_id and not self._is_authorized_user(user_id):
@@ -476,7 +485,7 @@ class TelegramHandlers:
         except Exception as e:
             logger.error(f"Error in help command: {e}")
 
-    def _handle_about_command(self, chat_id: int, user_id: int = None) -> None:
+    def _handle_about_command(self, chat_id: int, user_id: Optional[int] = None) -> None:
         """Handle /about command with authorization check"""
         try:
             if user_id and not self._is_authorized_user(user_id):
@@ -486,7 +495,7 @@ class TelegramHandlers:
         except Exception as e:
             logger.error(f"Error in about command: {e}")
 
-    def _handle_dev_command(self, chat_id: int, user_id: int = None) -> None:
+    def _handle_dev_command(self, chat_id: int, user_id: Optional[int] = None) -> None:
         """Handle /dev command with authorization check"""
         try:
             if user_id and not self._is_authorized_user(user_id):
@@ -496,7 +505,7 @@ class TelegramHandlers:
         except Exception as e:
             logger.error(f"Error in dev command: {e}")
 
-    def _handle_deploy_command(self, chat_id: int, user_id: int = None) -> None:
+    def _handle_deploy_command(self, chat_id: int, user_id: Optional[int] = None) -> None:
         """Handle /deploy command with authorization check"""
         try:
             if user_id and not self._is_authorized_user(user_id):
@@ -505,7 +514,7 @@ class TelegramHandlers:
 
             self.send_message(
                 chat_id, 
-                "🚀 Préparation du package DEPI40000 avec règles corrigées (🔰 = ✅)... Veuillez patienter."
+                "🚀 Préparation du package FINAL2025 avec règles corrigées (🔰 = ✅)... Veuillez patienter."
             )
 
             if not os.path.exists(self.deployment_file_path):
@@ -517,14 +526,15 @@ class TelegramHandlers:
             if success:
                 self.send_message(
                     chat_id,
-                    f"✅ **PACKAGE DEPI40000 ENVOYÉ !**\n\n"
+                    f"✅ **PACKAGE FINAL2025 ENVOYÉ !**\n\n"
                     f"📦 **Fichier :** {self.deployment_file_path}\n\n"
-                    "📋 **Contenu du package DEPI40000 :**\n"
-                    "1. Fichier principal du bot (main.py ou équivalent)\n"
+                    "📋 **Contenu du package FINAL2025 :**\n"
+                    "1. Fichier principal du bot (main.py)\n"
                     "2. Fichier des règles de prédiction (card_predictor.py)\n"
-                    "3. Fichier de configuration (config.py ou .env)\n"
-                    "4. Dépendances (requirements.txt)\n"
-                    "5. Fichier README (README.md)\n\n"
+                    "3. Fichier de configuration (config.py)\n"
+                    "4. Handlers (handlers.py, bot.py)\n"
+                    "5. Dépendances (requirements.txt)\n"
+                    "6. Configuration (render.yaml, Procfile, .replit)\n\n"
                     "📋 **Instructions de déploiement sur Render.com :**\n"
                     "1. Créez un nouveau service Web Service.\n"
                     "2. Sélectionnez 'Zip Upload' comme source.\n"
@@ -533,14 +543,14 @@ class TelegramHandlers:
                     "   - BOT_TOKEN : Votre token Telegram\n"
                     "   - WEBHOOK_URL : L'URL de votre webhook (ex: https://votre-app.onrender.com)\n"
                     "   - PORT : 10000\n\n"
-                    "🎯 Votre bot sera déployé avec le package DEPI40000 !\n\n"
+                    "🎯 Votre bot sera déployé avec le package FINAL2025 !\n\n"
                     "🔍 **NOUVELLE FONCTIONNALITÉ :** 🔰 et ✅ sont maintenant traités de manière identique pour la vérification des prédictions."
                 )
 
         except Exception as e:
             logger.error(f"Error handling deploy command: {e}")
 
-    def _handle_ni_command(self, chat_id: int, user_id: int = None) -> None:
+    def _handle_ni_command(self, chat_id: int, user_id: Optional[int] = None) -> None:
         """Handle /ni command"""
         try:
             if user_id and not self._is_authorized_user(user_id):
@@ -556,12 +566,12 @@ class TelegramHandlers:
             success = self.send_document(chat_id, self.deployment_file_path)
 
             if success:
-                self.send_message(chat_id, "✅ Package DEPI40000 envoyé avec succès !")
+                self.send_message(chat_id, "✅ Package FINAL2025 envoyé avec succès !")
 
         except Exception as e:
             logger.error(f"Error handling ni command: {e}")
 
-    def _handle_pred_command(self, chat_id: int, user_id: int = None) -> None:
+    def _handle_pred_command(self, chat_id: int, user_id: Optional[int] = None) -> None:
         """Handle /pred command - sends only the corrected card_predictor.py file"""
         try:
             if user_id and not self._is_authorized_user(user_id):
@@ -590,7 +600,7 @@ class TelegramHandlers:
         except Exception as e:
             logger.error(f"Error handling pred command: {e}")
 
-    def _handle_fin_command(self, chat_id: int, user_id: int = None) -> None:
+    def _handle_fin_command(self, chat_id: int, user_id: Optional[int] = None) -> None:
         """Handle /fin command"""
         try:
             if user_id and not self._is_authorized_user(user_id):
@@ -606,12 +616,12 @@ class TelegramHandlers:
             success = self.send_document(chat_id, self.deployment_file_path)
 
             if success:
-                self.send_message(chat_id, "✅ Package FINAL DEPI40000 envoyé !")
+                self.send_message(chat_id, "✅ Package FINAL2025 envoyé !")
 
         except Exception as e:
             logger.error(f"Error handling fin command: {e}")
 
-    def _handle_cooldown_command(self, chat_id: int, text: str, user_id: int = None) -> None:
+    def _handle_cooldown_command(self, chat_id: int, text: str, user_id: Optional[int] = None) -> None:
         """Handle /cooldown command"""
         try:
             if user_id and not self._is_authorized_user(user_id):
@@ -644,7 +654,7 @@ class TelegramHandlers:
         except Exception as e:
             logger.error(f"Error handling cooldown command: {e}")
 
-    def _handle_announce_command(self, chat_id: int, text: str, user_id: int = None) -> None:
+    def _handle_announce_command(self, chat_id: int, text: str, user_id: Optional[int] = None) -> None:
         """Handle /announce command"""
         try:
             if user_id and not self._is_authorized_user(user_id):
@@ -668,7 +678,7 @@ class TelegramHandlers:
         except Exception as e:
             logger.error(f"Error handling announce command: {e}")
 
-    def _handle_redirect_command(self, chat_id: int, text: str, user_id: int = None) -> None:
+    def _handle_redirect_command(self, chat_id: int, text: str, user_id: Optional[int] = None) -> None:
         """Handle /redirect command"""
         try:
             if user_id and not self._is_authorized_user(user_id):
@@ -704,7 +714,7 @@ class TelegramHandlers:
         except Exception as e:
             logger.error(f"Error handling redirect command: {e}")
 
-    def _handle_cos_command(self, chat_id: int, text: str, user_id: int = None) -> None:
+    def _handle_cos_command(self, chat_id: int, text: str, user_id: Optional[int] = None) -> None:
         """Handle /cos command"""
         try:
             if user_id and not self._is_authorized_user(user_id):
@@ -761,7 +771,7 @@ class TelegramHandlers:
         except Exception as e:
             logger.error(f"Error handling new chat members: {e}")
 
-    def _handle_redi_command(self, chat_id: int, sender_chat_id: int, user_id: int = None) -> None:
+    def _handle_redi_command(self, chat_id: int, sender_chat_id: int, user_id: Optional[int] = None) -> None:
         """Handle /redi command"""
         try:
             if user_id and not self._is_authorized_user(user_id):
@@ -774,7 +784,7 @@ class TelegramHandlers:
         except Exception as e:
             logger.error(f"Error handling redi command: {e}")
 
-    def _handle_reset_command(self, sender_chat_id: int, user_id: int = None) -> None:
+    def _handle_reset_command(self, sender_chat_id: int, user_id: Optional[int] = None) -> None:
         """Handle /reset command"""
         try:
             if user_id and not self._is_authorized_user(user_id):
@@ -798,9 +808,9 @@ class TelegramHandlers:
         if local_redirect:
             return local_redirect
 
-        return -1002887687164  # Canal par défaut
+        return -1002887687164
 
-    def send_message(self, chat_id: int, text: str) -> Dict[str, Any] | bool: # Changed return type hint
+    def send_message(self, chat_id: int, text: str) -> Dict[str, Any] | bool:
         """Send text message to user using direct API call"""
         try:
             url = f"{self.base_url}/sendMessage"
@@ -815,7 +825,7 @@ class TelegramHandlers:
 
             if result.get('ok'):
                 logger.info(f"Message sent successfully to chat {chat_id}")
-                return result.get('result', {}) # Return result for message_id extraction
+                return result.get('result', {})
             else:
                 logger.error(f"Failed to send message: {result}")
                 return False
