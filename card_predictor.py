@@ -23,7 +23,7 @@ CARD_SYMBOLS = ["♠️", "♥️", "♦️", "♣️", "❤️"]  # Include bot
 TARGET_CHANNEL_ID = -1002682552255
 
 # Target channel ID for predictions and updates
-PREDICTION_CHANNEL_ID = -1002646551216
+PREDICTION_CHANNEL_ID = -1002887687164
 
 class CardPredictor:
     """Handles card prediction logic for webhook deployment"""
